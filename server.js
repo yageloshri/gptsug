@@ -45,10 +45,8 @@ app.post('/song-suggestions', async (req, res) => {
   ...
 ]`;
 
-  const ideaPrompt = `תן רעיון יצירתי לסרטון סושיאל שזמר יכול להעלות אם הוא מבצע שיר בסגנון ${genre}, מהתקופה של ${era}, עם וייב ${popularity}. החזר משפט קצר בלבד.`;
-
   try {
-    // בקשה מ-GPT ל-5 שירים אמיתיים
+    // בקשה ל־GPT לשמות שירים
     const gptRes = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [{ role: 'user', content: gptPrompt }],
@@ -63,20 +61,10 @@ app.post('/song-suggestions', async (req, res) => {
       return res.status(400).json({ error: 'Invalid GPT format', raw: gptRes.choices[0].message.content });
     }
 
-    // קבל access token אם צריך
     if (!spotifyAccessToken) await getSpotifyAccessToken();
 
-    // בקשה נוספת לרעיון סושיאל
-    const ideaRes = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: ideaPrompt }],
-      temperature: 0.7,
-      max_tokens: 60
-    });
-    const idea = ideaRes.choices[0].message.content.trim();
-
-    // חיפוש ספציפי עבור כל שיר ואמן
     const results = [];
+
     for (const { title, artist } of songs) {
       const query = `${title} ${artist}`;
       const searchRes = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=1`, {
@@ -86,10 +74,21 @@ app.post('/song-suggestions', async (req, res) => {
       });
       const data = await searchRes.json();
       const track = data.tracks?.items?.[0];
+
+      // בקשת רעיון סושיאל נפרד לכל שיר
+      const ideaPrompt = `אתה מומחה לרעיונות מקוריים לסושיאל בישראל. תן רעיון מקורי ומגניב לסרטון שזמר ישראלי יכול להעלות אם הוא מבצע את השיר "${title}" של ${artist}. החזר משפט קצר בלבד.`;
+      const ideaRes = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: ideaPrompt }],
+        temperature: 0.7,
+        max_tokens: 60
+      });
+      const socialIdea = ideaRes.choices[0].message.content.trim();
+
       results.push({
         title,
         artist,
-        socialIdea: idea,
+        socialIdea,
         spotifyUrl: track?.external_urls?.spotify || ""
       });
     }
