@@ -1,10 +1,10 @@
-// server.js
-const express = require('express');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const { Configuration, OpenAIApi } = require('openai');
+import express from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+import { Configuration, OpenAIApi } from 'openai';
 
-require('dotenv').config();
+dotenv.config();
 
 const app = express();
 app.use(cors());
@@ -16,8 +16,6 @@ const openai = new OpenAIApi(new Configuration({
 
 app.post('/song-suggestions', async (req, res) => {
   const { genre, era, popularity } = req.body;
-
-  // בנה prompt חכם
   const prompt = `
 אתה עוזר מוזיקלי. המשתמש בחר:
 - סגנון: ${genre}
@@ -43,13 +41,11 @@ app.post('/song-suggestions', async (req, res) => {
       max_tokens: 400,
     });
 
-    // ננסה לפרסר את התשובה כ-JSON
     const text = completion.data.choices[0].message.content;
     let suggestions = [];
     try {
       suggestions = JSON.parse(text);
     } catch (e) {
-      // אם לא הצליח, נחזיר טקסט גולמי
       return res.json({ error: 'Could not parse GPT response', raw: text });
     }
 
