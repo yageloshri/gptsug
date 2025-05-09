@@ -1,4 +1,4 @@
-// server.js – שרת Node שמקבל ז'אנר/תקופה/פופולריות, משלים עם GPT ואז מחפש שירים אמיתיים ב-Spotify
+// server.js – שרת Node שמחזיר שירים אמיתיים עם רעיון לסושיאל בהתאם לבחירת המשתמש
 import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
@@ -33,24 +33,35 @@ async function getSpotifyAccessToken() {
 app.post('/song-suggestions', async (req, res) => {
   const { genre, era, popularity } = req.body;
 
-  const prompt = `אתה עוזר מוזיקלי. המשתמש בחר:
+  const gptPrompt = `אתה עוזר מוזיקלי. המשתמש בחר:
 - סגנון: ${genre}
 - תקופה: ${era}
 - פופולריות: ${popularity}
 
 תאר בקצרה איזה סוג שיר יתאים לאמן לשיר עכשיו. רק תיאור.`;
 
+  const ideaPrompt = `תן רעיון יצירתי ומגניב לסרטון סושיאל שזמר יכול להעלות אם הוא מבצע שיר מהסגנון ${genre}, מהתקופה של ${era}, עם וייב ${popularity}. החזר משפט קצר בלבד.`;
+
   try {
+    // תיאור כללי
     const gptRes = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: gptPrompt }],
       temperature: 0.7,
       max_tokens: 100
     });
+    const description = gptRes.choices[0].message.content.trim();
 
-    const description = gptRes.choices[0].message.content;
+    // רעיון סושיאל
+    const ideaRes = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: ideaPrompt }],
+      temperature: 0.7,
+      max_tokens: 60
+    });
+    const idea = ideaRes.choices[0].message.content.trim();
 
-    // ודא שיש access token
+    // טוקן ספוטיפיי
     if (!spotifyAccessToken) await getSpotifyAccessToken();
 
     const searchRes = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(description)}&type=track&limit=3`, {
@@ -63,8 +74,8 @@ app.post('/song-suggestions', async (req, res) => {
     const tracks = data.tracks?.items?.map(track => ({
       title: track.name,
       artist: track.artists[0].name,
-      image: track.album.images[0]?.url,
-      url: track.external_urls.spotify
+      socialIdea: idea,
+      spotifyUrl: track.external_urls.spotify || ""
     })) || [];
 
     res.json(tracks);
