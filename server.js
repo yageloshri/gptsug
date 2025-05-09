@@ -1,8 +1,8 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import dotenv from 'dotenv';
-import { Configuration, OpenAIApi } from 'openai';
+import OpenAI from "openai";
+import express from "express";
+import cors from "cors";
+import bodyParser from "body-parser";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -10,12 +10,11 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const openai = new OpenAIApi(new Configuration({
-  apiKey: process.env.OPENAI_KEY,
-}));
+const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY });
 
 app.post('/song-suggestions', async (req, res) => {
   const { genre, era, popularity } = req.body;
+
   const prompt = `
 אתה עוזר מוזיקלי. המשתמש בחר:
 - סגנון: ${genre}
@@ -34,14 +33,14 @@ app.post('/song-suggestions', async (req, res) => {
 `;
 
   try {
-    const completion = await openai.createChatCompletion({
+    const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.8,
       max_tokens: 400,
     });
 
-    const text = completion.data.choices[0].message.content;
+    const text = completion.choices[0].message.content;
     let suggestions = [];
     try {
       suggestions = JSON.parse(text);
